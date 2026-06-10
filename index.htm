@@ -377,6 +377,15 @@
             return bytes;
         }
 
+        // Преобразование hex-строки в байты
+        function hexToBytes(hexStr) {
+            const bytes = [];
+            for (let i = 0; i < hexStr.length; i += 2) {
+                bytes.push(parseInt(hexStr.substr(i, 2), 16));
+            }
+            return bytes;
+        }
+
         // Преобразование строки в байты
         function stringToBytes(str) {
             const bytes = [];
@@ -386,13 +395,13 @@
             return bytes;
         }
 
-        // HMAC-SHA1
+        // HMAC-SHA1 (исправленная версия)
         function hmacSha1(key, message) {
             const blockSize = 64;
             let keyBytes = key;
 
             if (keyBytes.length > blockSize) {
-                keyBytes = stringToBytes(sha1(String.fromCharCode.apply(null, keyBytes)));
+                keyBytes = hexToBytes(sha1(String.fromCharCode.apply(null, keyBytes)));
             }
 
             const paddedKey = new Array(blockSize).fill(0);
@@ -405,13 +414,14 @@
 
             const ipadMsg = String.fromCharCode.apply(null, ipad) + String.fromCharCode.apply(null, message);
             const innerHash = sha1(ipadMsg);
+            const innerHashBytes = hexToBytes(innerHash);
 
-            const opadMsg = String.fromCharCode.apply(null, opad) + innerHash;
+            const opadMsg = String.fromCharCode.apply(null, opad) + String.fromCharCode.apply(null, innerHashBytes);
             const result = sha1(opadMsg);
             return result;
         }
 
-        // TOTP генератор
+        // TOTP генератор (исправленная версия)
         function generateTOTP(secret, time = null) {
             if (!secret) return '------';
 
@@ -433,8 +443,8 @@
                 msg[6] = (counter >>> 8) & 0xff;
                 msg[7] = counter & 0xff;
 
-                const hmacHex = hmacSha1(key, msg);
-                const hmacBytes = stringToBytes(hmacHex);
+                const hmacHex = hmacSha1(key, Array.from(msg));
+                const hmacBytes = hexToBytes(hmacHex);
 
                 const offset = hmacBytes[hmacBytes.length - 1] & 0x0f;
                 const code = ((hmacBytes[offset] & 0x7f) << 24)
