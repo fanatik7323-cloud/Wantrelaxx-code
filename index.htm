@@ -222,7 +222,6 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.0/crypto-js.min.js"></script>
     <script>
         const ACCOUNTS = 6;
         
@@ -236,7 +235,7 @@
             6: 'EIPQAEPY62TXBRVZONH5HJYI3XSIZ3RH'
         };
 
-        // Base32 декодирование (правильная реализация)
+        // Base32 декодирование
         function base32Decode(base32String) {
             const base32Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
             let bits = '';
@@ -256,38 +255,189 @@
             return bytes;
         }
 
-        // TOTP генератор с использованием CryptoJS
+        // SHA1 встроенная реализация
+        function sha1(str) {
+            function rotate_left(n, b) {
+                return ((n << b) | (n >> (32 - b)));
+            }
+
+            function cvt_hex(val) {
+                var str = "";
+                var i;
+                var v;
+
+                for (i = 7; i >= 0; i--) {
+                    v = (val >>> (i * 4)) & 0x0f;
+                    str += v.toString(16);
+                }
+                return str;
+            }
+
+            var blockstart;
+            var i, j;
+            var W = new Array(80);
+            var H0 = 0x67452301;
+            var H1 = 0xEFCDAB89;
+            var H2 = 0x98BADCFE;
+            var H3 = 0x10325476;
+            var H4 = 0xC3D2E1F0;
+            var A, B, C, D, E, temp;
+
+            str = unescape(encodeURIComponent(str));
+            var strLen = str.length;
+
+            var wordArray = [];
+            for (i = 0; i < strLen - 3; i += 4) {
+                j = str.charCodeAt(i) << 24 | str.charCodeAt(i + 1) << 16 |
+                    str.charCodeAt(i + 2) << 8 | str.charCodeAt(i + 3);
+                wordArray.push(j);
+            }
+
+            switch (strLen % 4) {
+                case 0:
+                    i = 0x080000000;
+                    break;
+                case 1:
+                    i = str.charCodeAt(strLen - 1) << 24 | 0x0800000;
+                    break;
+                case 2:
+                    i = str.charCodeAt(strLen - 2) << 24 | str.charCodeAt(strLen - 1) << 16 | 0x08000;
+                    break;
+                case 3:
+                    i = str.charCodeAt(strLen - 3) << 24 | str.charCodeAt(strLen - 2) << 16 | str.charCodeAt(strLen - 1) << 8 | 0x80;
+                    break;
+            }
+
+            wordArray.push(i);
+
+            while ((wordArray.length % 16) != 0) {
+                wordArray.push(0);
+            }
+
+            wordArray.push(strLen >>> 29);
+            wordArray.push((strLen << 3) & 0x0ffffffff);
+
+            for (blockstart = 0; blockstart < wordArray.length; blockstart += 16) {
+                for (i = 0; i < 16; i++) {
+                    W[i] = wordArray[blockstart + i];
+                }
+                for (i = 16; i <= 79; i++) {
+                    W[i] = rotate_left(W[i - 3] ^ W[i - 8] ^ W[i - 14] ^ W[i - 16], 1);
+                }
+
+                A = H0;
+                B = H1;
+                C = H2;
+                D = H3;
+                E = H4;
+
+                for (i = 0; i <= 19; i++) {
+                    temp = (rotate_left(A, 5) + ((B & C) | (~B & D)) + E + W[i] + 0x5A827999) & 0x0ffffffff;
+                    E = D;
+                    D = C;
+                    C = rotate_left(B, 30);
+                    B = A;
+                    A = temp;
+                }
+
+                for (i = 20; i <= 39; i++) {
+                    temp = (rotate_left(A, 5) + (B ^ C ^ D) + E + W[i] + 0x6ED9EBA1) & 0x0ffffffff;
+                    E = D;
+                    D = C;
+                    C = rotate_left(B, 30);
+                    B = A;
+                    A = temp;
+                }
+
+                for (i = 40; i <= 59; i++) {
+                    temp = (rotate_left(A, 5) + ((B & C) | (B & D) | (C & D)) + E + W[i] + 0x8F1BBCDC) & 0x0ffffffff;
+                    E = D;
+                    D = C;
+                    C = rotate_left(B, 30);
+                    B = A;
+                    A = temp;
+                }
+
+                for (i = 60; i <= 79; i++) {
+                    temp = (rotate_left(A, 5) + (B ^ C ^ D) + E + W[i] + 0xCA62C1D6) & 0x0ffffffff;
+                    E = D;
+                    D = C;
+                    C = rotate_left(B, 30);
+                    B = A;
+                    A = temp;
+                }
+
+                H0 = (H0 + A) & 0x0ffffffff;
+                H1 = (H1 + B) & 0x0ffffffff;
+                H2 = (H2 + C) & 0x0ffffffff;
+                H3 = (H3 + D) & 0x0ffffffff;
+                H4 = (H4 + E) & 0x0ffffffff;
+            }
+
+            var tempstr = cvt_hex(H0) + cvt_hex(H1) + cvt_hex(H2) + cvt_hex(H3) + cvt_hex(H4);
+
+            return tempstr.toLowerCase();
+        }
+
+        function hexToBytes(hexStr) {
+            const bytes = [];
+            for (let i = 0; i < hexStr.length; i += 2) {
+                bytes.push(parseInt(hexStr.substr(i, 2), 16));
+            }
+            return bytes;
+        }
+
+        function hmacSha1(key, message) {
+            const blockSize = 64;
+            let keyBytes = key;
+
+            if (keyBytes.length > blockSize) {
+                keyBytes = hexToBytes(sha1(String.fromCharCode.apply(null, keyBytes)));
+            }
+
+            const paddedKey = new Array(blockSize).fill(0);
+            for (let i = 0; i < keyBytes.length; i++) {
+                paddedKey[i] = keyBytes[i];
+            }
+
+            const opad = paddedKey.map(b => b ^ 0x5c);
+            const ipad = paddedKey.map(b => b ^ 0x36);
+
+            const ipadMsg = String.fromCharCode.apply(null, ipad) + String.fromCharCode.apply(null, message);
+            const innerHash = sha1(ipadMsg);
+            const innerHashBytes = hexToBytes(innerHash);
+
+            const opadMsg = String.fromCharCode.apply(null, opad) + String.fromCharCode.apply(null, innerHashBytes);
+            const result = sha1(opadMsg);
+            return result;
+        }
+
+        // TOTP генератор
         function generateTOTP(secret, time = null) {
             if (!secret) return '------';
 
             try {
                 time = time || Math.floor(Date.now() / 1000);
-                const timeCounter = Math.floor(time / 30);
+                let timeCounter = Math.floor(time / 30);
 
-                // Декодируем BASE32 ключ
                 const key = base32Decode(secret);
                 
                 // Создаем 8-байтовое сообщение с counter (big-endian)
                 const msg = new Uint8Array(8);
-                for (let i = 0; i < 8; i++) {
-                    msg[7 - i] = timeCounter & 0xff;
+                for (let i = 7; i >= 0; i--) {
+                    msg[i] = timeCounter & 0xff;
                     timeCounter = timeCounter >> 8;
                 }
 
-                // Преобразуем в WordArray для CryptoJS
-                const keyWordArray = CryptoJS.enc.Latin1.parse(String.fromCharCode.apply(null, key));
-                const msgWordArray = CryptoJS.enc.Latin1.parse(String.fromCharCode.apply(null, msg));
+                const hmacHex = hmacSha1(key, Array.from(msg));
+                const hmacBytes = hexToBytes(hmacHex);
 
-                // Вычисляем HMAC-SHA1
-                const hmac = CryptoJS.HmacSHA1(msgWordArray, keyWordArray);
-                const hmacHex = hmac.toString();
-                
-                // Извлекаем динамический код
-                const offset = parseInt(hmacHex.substring(hmacHex.length - 1), 16) & 0x0f;
-                const offsetInBytes = offset * 2;
-                
-                const code = parseInt(hmacHex.substring(offsetInBytes, offsetInBytes + 8), 16) & 0x7fffffff;
-                
+                const offset = hmacBytes[hmacBytes.length - 1] & 0x0f;
+                const code = ((hmacBytes[offset] & 0x7f) << 24)
+                    | ((hmacBytes[offset + 1] & 0xff) << 16)
+                    | ((hmacBytes[offset + 2] & 0xff) << 8)
+                    | (hmacBytes[offset + 3] & 0xff);
+
                 return (code % 1000000).toString().padStart(6, '0');
             } catch (e) {
                 console.error('TOTP error:', e);
