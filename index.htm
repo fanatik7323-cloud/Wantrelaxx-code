@@ -222,10 +222,11 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.0/crypto-js.min.js"></script>
     <script>
         const ACCOUNTS = 6;
         
-        // ===== ВСТАВЬТЕ ВАШИ BASE32 КЛЮЧИ (32 символа) =====
+        // ===== ВСТАВЬТЕ ВАШИ BASE32 КЛЮЧИ =====
         const SECRETS = {
             1: 'AVHHL4E7S7ALPW4CNJB45JKHC4SN5A5S',
             2: 'EUDZP7RXWOGAWFGYSKQF4GGLZY4223LW',
@@ -235,193 +236,27 @@
             6: 'EIPQAEPY62TXBRVZONH5HJYI3XSIZ3RH'
         };
 
-        // ===== SHA1 встроенная функция (не требует CDN) =====
-        function sha1(str) {
-            function rotate_left(n, b) {
-                return ((n << b) | (n >> (32 - b)));
-            }
-
-            function cvt_hex(val) {
-                var str = "";
-                var i;
-                var v;
-
-                for (i = 7; i >= 0; i--) {
-                    v = (val >>> (i * 4)) & 0x0f;
-                    str += v.toString(16);
-                }
-                return str;
-            }
-
-            var blockstart;
-            var i, j;
-            var W = new Array(80);
-            var H0 = 0x67452301;
-            var H1 = 0xEFCDAB89;
-            var H2 = 0x98BADCFE;
-            var H3 = 0x10325476;
-            var H4 = 0xC3D2E1F0;
-            var A, B, C, D, E, temp;
-
-            str = unescape(encodeURIComponent(str));
-            var strLen = str.length;
-
-            var wordArray = [];
-            for (i = 0; i < strLen - 3; i += 4) {
-                j = str.charCodeAt(i) << 24 | str.charCodeAt(i + 1) << 16 |
-                    str.charCodeAt(i + 2) << 8 | str.charCodeAt(i + 3);
-                wordArray.push(j);
-            }
-
-            switch (strLen % 4) {
-                case 0:
-                    i = 0x080000000;
-                    break;
-                case 1:
-                    i = str.charCodeAt(strLen - 1) << 24 | 0x0800000;
-                    break;
-                case 2:
-                    i = str.charCodeAt(strLen - 2) << 24 | str.charCodeAt(strLen - 1) << 16 | 0x08000;
-                    break;
-                case 3:
-                    i = str.charCodeAt(strLen - 3) << 24 | str.charCodeAt(strLen - 2) << 16 | str.charCodeAt(strLen - 1) << 8 | 0x80;
-                    break;
-            }
-
-            wordArray.push(i);
-
-            while ((wordArray.length % 16) != 0) {
-                wordArray.push(0);
-            }
-
-            wordArray.push(strLen >>> 29);
-            wordArray.push((strLen << 3) & 0x0ffffffff);
-
-            for (blockstart = 0; blockstart < wordArray.length; blockstart += 16) {
-                for (i = 0; i < 16; i++) {
-                    W[i] = wordArray[blockstart + i];
-                }
-                for (i = 16; i <= 79; i++) {
-                    W[i] = rotate_left(W[i - 3] ^ W[i - 8] ^ W[i - 14] ^ W[i - 16], 1);
-                }
-
-                A = H0;
-                B = H1;
-                C = H2;
-                D = H3;
-                E = H4;
-
-                for (i = 0; i <= 19; i++) {
-                    temp = (rotate_left(A, 5) + ((B & C) | (~B & D)) + E + W[i] + 0x5A827999) & 0x0ffffffff;
-                    E = D;
-                    D = C;
-                    C = rotate_left(B, 30);
-                    B = A;
-                    A = temp;
-                }
-
-                for (i = 20; i <= 39; i++) {
-                    temp = (rotate_left(A, 5) + (B ^ C ^ D) + E + W[i] + 0x6ED9EBA1) & 0x0ffffffff;
-                    E = D;
-                    D = C;
-                    C = rotate_left(B, 30);
-                    B = A;
-                    A = temp;
-                }
-
-                for (i = 40; i <= 59; i++) {
-                    temp = (rotate_left(A, 5) + ((B & C) | (B & D) | (C & D)) + E + W[i] + 0x8F1BBCDC) & 0x0ffffffff;
-                    E = D;
-                    D = C;
-                    C = rotate_left(B, 30);
-                    B = A;
-                    A = temp;
-                }
-
-                for (i = 60; i <= 79; i++) {
-                    temp = (rotate_left(A, 5) + (B ^ C ^ D) + E + W[i] + 0xCA62C1D6) & 0x0ffffffff;
-                    E = D;
-                    D = C;
-                    C = rotate_left(B, 30);
-                    B = A;
-                    A = temp;
-                }
-
-                H0 = (H0 + A) & 0x0ffffffff;
-                H1 = (H1 + B) & 0x0ffffffff;
-                H2 = (H2 + C) & 0x0ffffffff;
-                H3 = (H3 + D) & 0x0ffffffff;
-                H4 = (H4 + E) & 0x0ffffffff;
-            }
-
-            var tempstr = cvt_hex(H0) + cvt_hex(H1) + cvt_hex(H2) + cvt_hex(H3) + cvt_hex(H4);
-
-            return tempstr.toLowerCase();
-        }
-
-        // Base32 декодирование
+        // Base32 декодирование (правильная реализация)
         function base32Decode(base32String) {
             const base32Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
             let bits = '';
+            let value;
             
             for (let i = 0; i < base32String.length; i++) {
-                const val = base32Alphabet.indexOf(base32String[i].toUpperCase());
-                if (val === -1) throw new Error('Invalid Base32 character: ' + base32String[i]);
-                bits += val.toString(2).padStart(5, '0');
+                value = base32Alphabet.indexOf(base32String[i].toUpperCase());
+                if (value === -1) throw new Error('Invalid Base32 character: ' + base32String[i]);
+                bits += value.toString(2).padStart(5, '0');
             }
 
             const bytes = [];
             for (let i = 0; i + 8 <= bits.length; i += 8) {
                 bytes.push(parseInt(bits.substring(i, i + 8), 2));
             }
+            
             return bytes;
         }
 
-        // Преобразование hex-строки в байты
-        function hexToBytes(hexStr) {
-            const bytes = [];
-            for (let i = 0; i < hexStr.length; i += 2) {
-                bytes.push(parseInt(hexStr.substr(i, 2), 16));
-            }
-            return bytes;
-        }
-
-        // Преобразование строки в байты
-        function stringToBytes(str) {
-            const bytes = [];
-            for (let i = 0; i < str.length; i++) {
-                bytes.push(str.charCodeAt(i) & 0xff);
-            }
-            return bytes;
-        }
-
-        // HMAC-SHA1 (исправленная версия)
-        function hmacSha1(key, message) {
-            const blockSize = 64;
-            let keyBytes = key;
-
-            if (keyBytes.length > blockSize) {
-                keyBytes = hexToBytes(sha1(String.fromCharCode.apply(null, keyBytes)));
-            }
-
-            const paddedKey = new Array(blockSize).fill(0);
-            for (let i = 0; i < keyBytes.length; i++) {
-                paddedKey[i] = keyBytes[i];
-            }
-
-            const opad = paddedKey.map(b => b ^ 0x5c);
-            const ipad = paddedKey.map(b => b ^ 0x36);
-
-            const ipadMsg = String.fromCharCode.apply(null, ipad) + String.fromCharCode.apply(null, message);
-            const innerHash = sha1(ipadMsg);
-            const innerHashBytes = hexToBytes(innerHash);
-
-            const opadMsg = String.fromCharCode.apply(null, opad) + String.fromCharCode.apply(null, innerHashBytes);
-            const result = sha1(opadMsg);
-            return result;
-        }
-
-        // TOTP генератор (исправленная версия)
+        // TOTP генератор с использованием CryptoJS
         function generateTOTP(secret, time = null) {
             if (!secret) return '------';
 
@@ -429,29 +264,30 @@
                 time = time || Math.floor(Date.now() / 1000);
                 const timeCounter = Math.floor(time / 30);
 
+                // Декодируем BASE32 ключ
                 const key = base32Decode(secret);
                 
-                // Создаем 8-байтовое сообщение с counter
+                // Создаем 8-байтовое сообщение с counter (big-endian)
                 const msg = new Uint8Array(8);
-                let counter = timeCounter;
-                msg[0] = (counter >>> 56) & 0xff;
-                msg[1] = (counter >>> 48) & 0xff;
-                msg[2] = (counter >>> 40) & 0xff;
-                msg[3] = (counter >>> 32) & 0xff;
-                msg[4] = (counter >>> 24) & 0xff;
-                msg[5] = (counter >>> 16) & 0xff;
-                msg[6] = (counter >>> 8) & 0xff;
-                msg[7] = counter & 0xff;
+                for (let i = 0; i < 8; i++) {
+                    msg[7 - i] = timeCounter & 0xff;
+                    timeCounter = timeCounter >> 8;
+                }
 
-                const hmacHex = hmacSha1(key, Array.from(msg));
-                const hmacBytes = hexToBytes(hmacHex);
+                // Преобразуем в WordArray для CryptoJS
+                const keyWordArray = CryptoJS.enc.Latin1.parse(String.fromCharCode.apply(null, key));
+                const msgWordArray = CryptoJS.enc.Latin1.parse(String.fromCharCode.apply(null, msg));
 
-                const offset = hmacBytes[hmacBytes.length - 1] & 0x0f;
-                const code = ((hmacBytes[offset] & 0x7f) << 24)
-                    | ((hmacBytes[offset + 1] & 0xff) << 16)
-                    | ((hmacBytes[offset + 2] & 0xff) << 8)
-                    | (hmacBytes[offset + 3] & 0xff);
-
+                // Вычисляем HMAC-SHA1
+                const hmac = CryptoJS.HmacSHA1(msgWordArray, keyWordArray);
+                const hmacHex = hmac.toString();
+                
+                // Извлекаем динамический код
+                const offset = parseInt(hmacHex.substring(hmacHex.length - 1), 16) & 0x0f;
+                const offsetInBytes = offset * 2;
+                
+                const code = parseInt(hmacHex.substring(offsetInBytes, offsetInBytes + 8), 16) & 0x7fffffff;
+                
                 return (code % 1000000).toString().padStart(6, '0');
             } catch (e) {
                 console.error('TOTP error:', e);
